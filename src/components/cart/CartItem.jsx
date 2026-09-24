@@ -31,7 +31,10 @@ export default function CartItem({ item, editable = false }) {
     );
   }
 
-  const { price: unitPrice, discounted } = applyOffer(item.price, offer);
+  const { price: unitPrice, discounted } = applyOffer(
+    item.price,
+    item.offer_eligible ? offer : null
+  );
 
   return (
     <div className="flex items-center gap-3 rounded-xl bg-white p-3 shadow-sm">

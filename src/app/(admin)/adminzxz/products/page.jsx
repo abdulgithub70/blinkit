@@ -18,6 +18,7 @@ const EMPTY = {
   exhibition_id: "",
   is_available: true,
   is_featured: false,
+  offer_eligible: false,
 };
 
 export default function ProductsPage() {
@@ -30,7 +31,9 @@ export default function ProductsPage() {
     const [prods, cats, exs] = await Promise.all([
       supabase
         .from("products")
-        .select("id,name,description,price,image,category_id,exhibition_id,is_available,is_featured")
+        .select(
+          "id,name,description,price,image,category_id,exhibition_id,is_available,is_featured,offer_eligible"
+        )
         .order("name"),
       supabase.from("categories").select("id,name").order("name"),
       supabase.from("exhibitions").select("id,name").order("name"),
@@ -73,6 +76,7 @@ export default function ProductsPage() {
       exhibition_id: editing.exhibition_id || null,
       is_available: editing.is_available,
       is_featured: editing.is_featured,
+      offer_eligible: editing.offer_eligible,
     };
     const { error } = editing.id
       ? await supabase.from("products").update(payload).eq("id", editing.id)
@@ -265,6 +269,14 @@ export default function ProductsPage() {
                   onChange={(e) => setEditing({ ...editing, is_featured: e.target.checked })}
                 />
                 Show in Quick picks
+              </label>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={editing.offer_eligible}
+                  onChange={(e) => setEditing({ ...editing, offer_eligible: e.target.checked })}
+                />
+                Eligible for offer
               </label>
             </div>
             <button

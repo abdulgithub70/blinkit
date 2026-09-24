@@ -30,6 +30,7 @@ export const useCartStore = create(
                 price: Number(product.price),
                 image: product.image ?? null,
                 description: product.description ?? null,
+                offer_eligible: Boolean(product.offer_eligible),
                 quantity: 1,
               },
             ],
@@ -71,6 +72,7 @@ export const useCartStore = create(
                 price: Number(p.price),
                 image: p.image ?? null,
                 description: p.description ?? null,
+                offer_eligible: Boolean(p.offer_eligible),
                 unavailable: !p.is_available || Boolean(wrongVenue),
               };
             }),

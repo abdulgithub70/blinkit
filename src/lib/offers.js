@@ -58,10 +58,12 @@ export function applyOffer(price, offer) {
 }
 
 // Cart subtotal with the offer applied per line, for display in the cart
-// drawer and at checkout — computed the same way the database will.
+// drawer and at checkout — computed the same way the database will. Only
+// lines whose product opted into the offer (offer_eligible) are discounted.
 export function discountedCartSubtotal(cart, offer) {
   return cart.reduce(
-    (sum, item) => sum + applyOffer(item.price, offer).price * item.quantity,
+    (sum, item) =>
+      sum + applyOffer(item.price, item.offer_eligible ? offer : null).price * item.quantity,
     0
   );
 }

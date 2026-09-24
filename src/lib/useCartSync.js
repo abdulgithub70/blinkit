@@ -19,7 +19,7 @@ export function useCartSync(exhibitionId, active = true) {
     let cancelled = false;
     supabase
       .from("products")
-      .select("id,name,description,price,image,exhibition_id,is_available")
+      .select("id,name,description,price,image,exhibition_id,is_available,offer_eligible")
       .in("id", idsKey.split(",").map(Number))
       .then(({ data, error }) => {
         if (!cancelled && !error) syncWithCatalog(data ?? [], exhibitionId);

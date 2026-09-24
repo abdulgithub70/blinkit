@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { cached, invalidate } from "@/lib/cache";
 
 const PRODUCT_COLUMNS =
-  "id,name,description,price,image,category_id,exhibition_id,is_available,is_featured,sort_order";
+  "id,name,description,price,image,category_id,exhibition_id,is_available,is_featured,sort_order,offer_eligible";
 
 function fetchCatalog(exhibitionId) {
   return cached(`catalog:${exhibitionId}`, async () => {

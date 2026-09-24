@@ -17,7 +17,10 @@ export default function ProductCard({ product }) {
   const decrementItem = useCartStore((s) => s.decrementItem);
   const available = product.is_available !== false;
   const offer = useActiveOffer();
-  const { price: displayPrice, discounted } = applyOffer(product.price, offer);
+  const { price: displayPrice, discounted } = applyOffer(
+    product.price,
+    product.offer_eligible ? offer : null
+  );
 
   return (
     <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm">

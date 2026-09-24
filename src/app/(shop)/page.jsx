@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Bike, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { FOOD_COURT_CATEGORY_SLUGS } from "@/config/features";
 import { useCurrentExhibition } from "@/lib/useExhibitions";
 import { useCatalog } from "@/lib/useCatalog";
@@ -70,14 +70,6 @@ export default function HomePage() {
               longer, and that is shown on the order itself, not here. */}
           <Clock size={16} /> 10–15 min to your stall
         </span>
-        {/* Delivery fee is per order, not per item. 
-        <span className="flex items-center gap-1.5">
-          <Bike size={16} />
-          {Number(exhibition.delivery_fee) > 0
-            ? `${formatPrice(exhibition.delivery_fee)} delivery`
-            : "Free delivery"}
-        </span>
-        */}
       </div>
 
       {products.length === 0 ? (
