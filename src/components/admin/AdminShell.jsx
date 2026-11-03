@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, LogOut, Package, ShoppingBag, Tags, Percent } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, LogOut, Package, ShoppingBag, Tags, Percent } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { BRAND } from "@/config/brand";
 
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/adminzxz/products", label: "Products", icon: Package },
   { href: "/adminzxz/categories", label: "Categories", icon: Tags },
   { href: "/adminzxz/offers", label: "Offers", icon: Percent },
+  { href: "/adminzxz/halls", label: "Halls", icon: LayoutGrid },
 ];
 
 export default function AdminShell({ children }) {
