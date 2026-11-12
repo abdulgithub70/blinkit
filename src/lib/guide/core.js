@@ -298,14 +298,12 @@ function describeEnglish(steps, unit = "shell") {
 var PATH_NODE = "@path";
 var minutesFor = (meters) => Math.max(1, Math.round(meters / 70));
 var SEP = "";
-function findVenueRoute(layouts, links, from, to, shellM = 3) {
+var venueKey = (hall, id) => hall + SEP + id;
+function makeNetwork(layouts, links) {
   const grids = {};
   const grid = (h) => grids[h] ??= gridFromLayout(layouts[h]);
   const has = (h, id) => h === PATH_NODE || !!layouts[h] && !!grid(h).places[id];
   const labelOf = (h, id) => h === PATH_NODE ? id : grid(h).places[id].label;
-  if (!has(from.hall, from.id) || !has(to.hall, to.id)) return null;
-  if (from.hall === to.hall && from.id === to.id) return { legs: [], meters: 0 };
-  const node = (h, id) => h + SEP + id;
   const edges = /* @__PURE__ */ new Map();
   const add = (a, e) => edges.set(a, [...edges.get(a) ?? [], e]);
   const portals = {};
@@ -314,32 +312,34 @@ function findVenueRoute(layouts, links, from, to, shellM = 3) {
     if (!has(l.aHall, l.aPoi) || !has(l.bHall, l.bPoi)) continue;
     const kind = l.kind ?? "walk";
     const aLabel = labelOf(l.aHall, l.aPoi), bLabel = labelOf(l.bHall, l.bPoi);
-    add(node(l.aHall, l.aPoi), { to: node(l.bHall, l.bPoi), cost: l.meters, leg: { type: "link", fromHall: l.aHall, toHall: l.bHall, fromId: l.aPoi, toId: l.bPoi, fromLabel: aLabel, toLabel: bLabel, meters: l.meters, kind } });
-    add(node(l.bHall, l.bPoi), { to: node(l.aHall, l.aPoi), cost: l.meters, leg: { type: "link", fromHall: l.bHall, toHall: l.aHall, fromId: l.bPoi, toId: l.aPoi, fromLabel: bLabel, toLabel: aLabel, meters: l.meters, kind } });
+    add(venueKey(l.aHall, l.aPoi), { to: venueKey(l.bHall, l.bPoi), cost: l.meters, leg: { type: "link", fromHall: l.aHall, toHall: l.bHall, fromId: l.aPoi, toId: l.bPoi, fromLabel: aLabel, toLabel: bLabel, meters: l.meters, kind } });
+    add(venueKey(l.bHall, l.bPoi), { to: venueKey(l.aHall, l.aPoi), cost: l.meters, leg: { type: "link", fromHall: l.bHall, toHall: l.aHall, fromId: l.bPoi, toId: l.aPoi, fromLabel: bLabel, toLabel: aLabel, meters: l.meters, kind } });
     if (l.aHall !== PATH_NODE) portal(l.aHall, l.aPoi);
     if (l.bHall !== PATH_NODE) portal(l.bHall, l.bPoi);
   }
-  portal(from.hall, from.id);
-  portal(to.hall, to.id);
-  for (const [h, set] of Object.entries(portals)) {
-    const ids = [...set];
-    for (let i = 0; i < ids.length; i++)
-      for (let j = i + 1; j < ids.length; j++) {
-        const g = grid(h);
-        const p = findRoute(g, g.places[ids[i]], g.places[ids[j]]);
-        if (!p) continue;
-        const m = (p.length - 1) * shellM;
-        add(node(h, ids[i]), { to: node(h, ids[j]), cost: m, leg: { type: "hall", hall: h, path: p, fromId: ids[i], toId: ids[j], meters: m } });
-        add(node(h, ids[j]), { to: node(h, ids[i]), cost: m, leg: { type: "hall", hall: h, path: [...p].reverse(), fromId: ids[j], toId: ids[i], meters: m } });
-      }
-  }
-  const S = node(from.hall, from.id), E = node(to.hall, to.id);
+  const finish = (extra, shellM) => {
+    for (const e of extra) portal(e.hall, e.id);
+    for (const [h, set] of Object.entries(portals)) {
+      const ids = [...set];
+      const g = grid(h);
+      for (let i = 0; i < ids.length; i++)
+        for (let j = i + 1; j < ids.length; j++) {
+          const p = findRoute(g, g.places[ids[i]], g.places[ids[j]]);
+          if (!p) continue;
+          const m = (p.length - 1) * shellM;
+          add(venueKey(h, ids[i]), { to: venueKey(h, ids[j]), cost: m, leg: { type: "hall", hall: h, path: p, fromId: ids[i], toId: ids[j], meters: m } });
+          add(venueKey(h, ids[j]), { to: venueKey(h, ids[i]), cost: m, leg: { type: "hall", hall: h, path: [...p].reverse(), fromId: ids[j], toId: ids[i], meters: m } });
+        }
+    }
+  };
+  return { grid, has, edges, finish };
+}
+function dijkstra(edges, S, E) {
   const dist = /* @__PURE__ */ new Map([[S, 0]]), prev = /* @__PURE__ */ new Map(), done = /* @__PURE__ */ new Set();
   for (; ; ) {
     let u = null;
     for (const [k, d] of dist) if (!done.has(k) && (u === null || d < dist.get(u))) u = k;
-    if (u === null) return null;
-    if (u === E) break;
+    if (u === null || u === E) break;
     done.add(u);
     for (const e of edges.get(u) ?? []) {
       const nd = dist.get(u) + e.cost;
@@ -349,6 +349,16 @@ function findVenueRoute(layouts, links, from, to, shellM = 3) {
       }
     }
   }
+  return { dist, prev };
+}
+function findVenueRoute(layouts, links, from, to, shellM = 3) {
+  const net = makeNetwork(layouts, links);
+  if (!net.has(from.hall, from.id) || !net.has(to.hall, to.id)) return null;
+  if (from.hall === to.hall && from.id === to.id) return { legs: [], meters: 0 };
+  net.finish([from, to], shellM);
+  const S = venueKey(from.hall, from.id), E = venueKey(to.hall, to.id);
+  const { dist, prev } = dijkstra(net.edges, S, E);
+  if (!dist.has(E) || !prev.has(E)) return null;
   const legs = [];
   for (let k = E; k !== S; ) {
     const p = prev.get(k);
@@ -357,6 +367,42 @@ function findVenueRoute(layouts, links, from, to, shellM = 3) {
   }
   legs.reverse();
   return { legs, meters: dist.get(E) };
+}
+function distancesFrom(layouts, links, from, shellM = 3) {
+  const out = {};
+  const net = makeNetwork(layouts, links);
+  if (!net.has(from.hall, from.id)) return out;
+  net.finish([from], shellM);
+  const { dist } = dijkstra(net.edges, venueKey(from.hall, from.id));
+  for (const h of Object.keys(layouts)) {
+    const g = net.grid(h);
+    const field = new Float64Array(g.rows * g.cols).fill(Infinity);
+    const heap = new MinHeap();
+    for (const [k, d] of dist) {
+      const [hh, id] = k.split(SEP);
+      if (hh !== h || !g.places[id]) continue;
+      for (const [r, c] of g.places[id].access) if (d < field[r * g.cols + c]) {
+        field[r * g.cols + c] = d;
+        heap.push([d, r, c, 0, 0]);
+      }
+    }
+    for (let n = heap.pop(); n; n = heap.pop()) {
+      const [d, r, c] = n;
+      if (d > field[r * g.cols + c]) continue;
+      for (const [dx, dy] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+        const nr = r + dy, nc = c + dx;
+        if (!isWalkable(g, nr, nc) || d + shellM >= field[nr * g.cols + nc]) continue;
+        field[nr * g.cols + nc] = d + shellM;
+        heap.push([d + shellM, nr, nc, 0, 0]);
+      }
+    }
+    for (const [id, pl] of Object.entries(g.places)) {
+      let m = Infinity;
+      for (const [r, c] of pl.access) m = Math.min(m, field[r * g.cols + c]);
+      out[venueKey(h, id)] = m;
+    }
+  }
+  return out;
 }
 function partsOf(route) {
   const parts = [];
@@ -381,12 +427,14 @@ function partsOf(route) {
 export {
   DEFAULT_PATTERN,
   DIRS,
+  MinHeap,
   PATH_NODE,
   StepDetector,
   WALKABLE,
   buildHall,
   describeEnglish,
   describeHinglish,
+  distancesFrom,
   findRoute,
   findVenueRoute,
   gridFromLayout,
@@ -398,5 +446,6 @@ export {
   neighbours,
   partsOf,
   progressIndex,
-  toSteps
+  toSteps,
+  venueKey
 };

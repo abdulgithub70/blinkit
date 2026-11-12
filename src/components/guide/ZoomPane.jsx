@@ -5,7 +5,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 // Touch map: ek ungli se drag, do ungliyon se pinch zoom, +/- aur Fit buttons. children(px) = ek shell kitne pixel ka hai.
-const ZoomPane = forwardRef(function ZoomPane({ cols, children, height = "55vh", className = "", min = 12, max = 64 }, ref) {
+const ZoomPane = forwardRef(function ZoomPane({ cols, children, height = "55vh", className = "", min = 6, max = 64 }, ref) {
   const box = useRef(null);
   const [px, setPx] = useState(24);
   const pxRef = useRef(24);

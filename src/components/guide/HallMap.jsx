@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { boxOf, pickLabels } from "@/lib/guide/labels";
 
 const FLOOR = { ".": "transparent", "#": "#94a3b8", W: "#ffffff", S: "#eff6ff" };
 const POI = { gate: ["G", "#059669"], washroom: ["WC", "#0284c7"], food: ["F", "#d97706"], lift: ["L", "#7c3aed"], stairs: ["St", "#7c3aed"], help: ["?", "#475569"] };
@@ -13,6 +14,9 @@ const CSS = `
 @keyframes hm-pulse{0%{box-shadow:0 0 0 0 var(--c)}70%{box-shadow:0 0 0 12px transparent}100%{box-shadow:0 0 0 0 transparent}}
 @keyframes hm-glow{0%,100%{box-shadow:0 0 3px 1px var(--c)}50%{box-shadow:0 0 16px 6px var(--c)}}
 @keyframes hm-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes hm-fade{from{opacity:0}to{opacity:1}}
+.hm-label{position:absolute;z-index:4;pointer-events:none;white-space:nowrap;text-align:center;border-radius:9999px;box-shadow:0 1px 4px rgba(15,23,42,.3);animation:hm-fade .18s ease-out}
+.hm-co{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
 @keyframes hm-flow{to{stroke-dashoffset:var(--d)}}
 .hm-bounce{animation:hm-bounce 1.1s ease-in-out infinite}
 .hm-flow{animation:hm-flow 1s linear infinite}
@@ -22,14 +26,6 @@ const CSS = `
 // Sponsored stall: promo = { on, style: "pulse" | "glow" | "bounce", color, tagline, until: "YYYY-MM-DD" }
 export const promoOf = (s, today = new Date().toISOString().slice(0, 10)) =>
   s.promo?.on && (!s.promo.until || s.promo.until >= today) ? s.promo : null;
-
-const boxOf = (cells) => {
-  const rs = cells.map((c) => c[0]);
-  const cs = cells.map((c) => c[1]);
-  const r0 = Math.min(...rs);
-  const c0 = Math.min(...cs);
-  return { r0, c0, h: Math.max(...rs) - r0 + 1, w: Math.max(...cs) - c0 + 1 };
-};
 
 // Hall ka shell grid. Stalls halke uthe hue tiles ki tarah, route ek chikni animated line, pins A / B / Exit / Enter.
 // Admin editor: onCell(row, col). Visitor guide: onPick("stall" | "poi", id), route (cells), routeFrom / routeTo (ids), pins.
@@ -49,6 +45,18 @@ export default function HallMap({ layout, px = 28, route = [], routeFrom, routeT
     return pts.map((p) => p.join(",")).join(" ");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route, routeFrom, routeTo, px, byId]);
+  const boostKey = [selectedId, ...pins.map((p) => p.id)].join("|");
+  const labels = useMemo(
+    () =>
+      pickLabels({
+        stalls: stalls.map((s) => ({ id: s.id, label: s.label, company: s.company, cells: s.cells, promo: !!promoOf(s, today) })),
+        pois,
+        px,
+        boost: new Set(boostKey.split("|")),
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [stalls, pois, px, boostKey, today]
+  );
   const tap = (kind, id) => onPick && ((e) => { e.stopPropagation(); onPick(kind, id); });
   const mode = onPick ? "absolute cursor-pointer" : "pointer-events-none absolute";
 
@@ -67,7 +75,7 @@ export default function HallMap({ layout, px = 28, route = [], routeFrom, routeT
       >
         {cells.map((row, r) =>
           [...row].map((ch, c) => (
-            <div key={`${r},${c}`} data-rc={`${r},${c}`} className="border-[0.5px] border-slate-200/70" style={{ width: px, height: px, background: FLOOR[ch] }} />
+            <div key={`${r},${c}`} data-rc={`${r},${c}`} className={labels.grid ? "border-[0.5px] border-slate-200/70" : ""} style={{ width: px, height: px, background: FLOOR[ch] }} />
           ))
         )}
       </div>
@@ -78,7 +86,6 @@ export default function HallMap({ layout, px = 28, route = [], routeFrom, routeT
         const promo = promoOf(s, today);
         const edge = promo?.color ?? "#60a5fa";
         const sel = s.id === selectedId;
-        const showCompany = s.company && (b.w >= 2 || px >= 30);
         return (
           <div
             key={s.id}
@@ -97,12 +104,12 @@ export default function HallMap({ layout, px = 28, route = [], routeFrom, routeT
                 borderColor: sel ? "#0f172a" : edge,
                 background: promo ? "linear-gradient(160deg,#fffbeb,#fde68a)" : "linear-gradient(160deg,#ffffff,#dbeafe)",
                 boxShadow: `0 2px 0 ${edge}, 0 5px 8px rgba(30,64,175,.16)`,
-                fontSize: Math.max(7, Math.min(13, px * 0.3)),
+                fontSize: labels.f,
               }}
             >
-              {px >= 16 && <b>{s.label || "·"}</b>}
-              {showCompany && <span className="max-w-full break-words text-slate-600">{s.company}</span>}
-              {promo && <i className="hm-star" style={{ color: edge }}>★</i>}
+              {labels.stalls[s.id] && <b>{s.label}</b>}
+              {labels.stalls[s.id]?.company && <span className="hm-co text-slate-600">{s.company}</span>}
+              {promo && px >= 10 && <i className="hm-star" style={{ color: edge }}>★</i>}
             </div>
           </div>
         );
@@ -118,7 +125,7 @@ export default function HallMap({ layout, px = 28, route = [], routeFrom, routeT
 
       {pois.map((p) => {
         const [txt, col] = POI[p.type] ?? ["•", "#475569"];
-        const size = Math.max(16, px - 6);
+        const size = px < 16 ? Math.max(8, px * 0.9) : Math.max(16, px - 6);
         return (
           <div
             key={p.id}
@@ -139,10 +146,21 @@ export default function HallMap({ layout, px = 28, route = [], routeFrom, routeT
               fontSize: Math.max(7, px * 0.26),
             }}
           >
-            {txt}
+            {size >= 14 ? txt : ""}
           </div>
         );
       })}
+
+      {labels.pills.map((l) => (
+        <div
+          key={l.id}
+          data-label={l.id}
+          className="hm-label"
+          style={{ left: l.x, top: l.y, width: l.w, height: l.h, lineHeight: `${l.h}px`, fontSize: Math.min(12, Math.max(9, px * 0.28)), background: l.tone === "stall" ? "#f59e0b" : "rgba(255,255,255,.95)", color: l.tone === "stall" ? "#fff" : "#0f172a", fontWeight: 600 }}
+        >
+          {l.text}
+        </div>
+      ))}
 
       {pins.map((pk) => {
         const c = center(pk.id);
